@@ -1,0 +1,100 @@
+:root {
+  --motion-fast: 140ms;
+  --motion-control: 180ms;
+  --motion-panel: 260ms;
+  --motion-ease: cubic-bezier(.22,1,.36,1);
+}
+
+/* Feedback is immediate; animations never delay a click or a request. */
+.app button, .member-gate button, .app summary, .app a {
+  transition: color var(--motion-fast) ease, background-color var(--motion-control) ease,
+    border-color var(--motion-control) ease, opacity var(--motion-fast) ease,
+    transform var(--motion-fast) var(--motion-ease) !important;
+  -webkit-tap-highlight-color: transparent;
+}
+.app button:not(:disabled):active, .member-gate button:not(:disabled):active { transform: scale(.985) !important; }
+.app button:disabled, .member-gate button:disabled { transform: none !important; }
+.app .ll-field, .app input, .app textarea, .app select {
+  transition: border-color var(--motion-control) ease, background-color var(--motion-control) ease, opacity var(--motion-fast) ease;
+}
+.app .seg-thumb {
+  transition: transform 240ms var(--motion-ease), background-color var(--motion-control) ease !important;
+}
+.app-nav-button { position: relative; isolation: isolate; }
+.app-nav-button::before {
+  content: ''; position: absolute; top: 0; left: 50%; width: 34px; height: 28px;
+  border-radius: 10px; background: #7c2ff21c; z-index: -1; pointer-events: none;
+  opacity: 0; transform: translateX(-50%) scale(.9);
+  transition: opacity var(--motion-control) ease, transform 220ms var(--motion-ease);
+}
+.app-nav-button.active::before { opacity: 1; transform: translateX(-50%) scale(1); }
+.app-nav-button > svg, .home-tool > svg {
+  transition: color var(--motion-control) ease, transform 220ms var(--motion-ease);
+}
+.app-nav-button.active > svg { transform: translateY(-1px); }
+.mp-entry-action > span:last-child, .pd-home-link > span, .mp-arrow-button {
+  transition: transform var(--motion-control) var(--motion-ease);
+}
+@media (hover:hover) and (pointer:fine) {
+  .home-tool:hover > svg { transform: translateY(-2px); }
+  .mp-entry:hover .mp-entry-action > span:last-child { transform: translate(2px,-2px); }
+  .pd-home-open:hover .pd-home-link > span { transform: translateX(2px); }
+}
+.pd-home-link > span { display: inline-block; }
+
+/* Existing sections stay mounted, preserving text fields and selected filters. */
+.app-screen, .app .mp-profile, .member-gate .member-card {
+  animation: motion-screen-in var(--motion-panel) var(--motion-ease) both;
+}
+.motion-panel, .motion-notice, .mp-form-message, .mp-notice, .pd-signal,
+.pd-home-signal, .mp-achievement, .journal-row {
+  animation: motion-item-in 220ms var(--motion-ease) both;
+}
+.motion-reveal { overflow: hidden; display: flow-root; }
+.motion-details-active { overflow: hidden; }
+.app .mp-progress > span { transition: width 320ms var(--motion-ease); }
+.app .home-market-arrow { transition: transform 220ms var(--motion-ease); }
+.app .mp-review-toggle > span:last-child { transition: transform 220ms var(--motion-ease); }
+.app .mp-review-toggle[aria-expanded=true] > span:last-child { transform: rotate(180deg); }
+.app .pd-tab { transition: background-color var(--motion-control) ease, color var(--motion-control) ease, transform var(--motion-fast) var(--motion-ease) !important; }
+.app .pd-tab-count { transition: background-color var(--motion-control) ease, color var(--motion-control) ease; }
+
+/* Busy indicators are tied to actual request state, never a simulated percentage. */
+.app button[aria-busy=true], .member-gate button[aria-busy=true] { position: relative; }
+.app button[aria-busy=true]::after, .member-gate button[aria-busy=true]::after, .motion-loader {
+  content: ''; display: inline-block; width: 12px; height: 12px; flex-shrink: 0;
+  margin-left: 8px; vertical-align: -1px; border: 1.5px solid currentColor;
+  border-right-color: transparent; border-radius: 50%; animation: motion-spin 800ms linear infinite;
+}
+.motion-loading { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.motion-loading .motion-loader { margin-left: 0; }
+.app .mp-review-form[aria-busy=true] textarea { opacity: .65; }
+
+@keyframes motion-screen-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes motion-item-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes motion-spin { to { transform: rotate(360deg); } }
+
+/* Includes older inline transitions and the splash; JavaScript honours this too. */
+@media (prefers-reduced-motion:reduce) {
+  html { scroll-behavior: auto !important; }
+  .app.app.app *, .app.app.app *::before, .app.app.app *::after,
+  .member-gate.member-gate *, .member-gate.member-gate *::before,
+  .member-gate.member-gate *::after, .splash, .splash *, .splash *::before, .splash *::after {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
+  .app button:not(:disabled):active, .member-gate button:not(:disabled):active,
+  .home-tool:hover > svg, .app-nav-button.active > svg,
+  .mp-entry:hover .mp-entry-action > span:last-child, .pd-home-open:hover .pd-home-link > span {
+    transform: none !important;
+  }
+}
+
+.mp-achievements-extra { padding-top: 14px; }
+.mp-achievement-icon { transition: color var(--motion-control) ease, background-color var(--motion-control) ease, border-color var(--motion-control) ease; }
+.member-card .motion-loader { margin: 0 8px 0 0; }

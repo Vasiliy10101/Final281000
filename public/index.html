@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"/>
+<title>Трейдер-апп</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.tailwindcss.com" onerror="window.__noTW=1"></script>
+<style>
+  html,body{margin:0;height:100%;background:#0A0A0C;-webkit-tap-highlight-color:transparent;font-family:'Onest',system-ui,sans-serif;scroll-behavior:smooth;}
+  #root{height:100%;position:relative;z-index:1;}
+  .app{height:100dvh!important;border-radius:0!important;max-width:520px;margin:0 auto;}
+  .err{color:#E9E5DA;white-space:pre-wrap;padding:24px;font:14px/1.6 ui-monospace,monospace;}
+  .ld{color:#A29F92;padding:24px;font:14px/1.6 ui-sans-serif,system-ui,sans-serif;}
+  .splash{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;background:#0A0A0C;z-index:50;transition:opacity .5s ease;}
+  .splash.hide{opacity:0;pointer-events:none;}
+  .radar{position:relative;width:130px;height:130px;border-radius:50%;border:1px solid rgba(255,255,255,0.14);overflow:hidden;}
+  .radar .ring{position:absolute;border-radius:50%;border:1px solid rgba(255,255,255,0.08);}
+  .r2{inset:24px;} .r3{inset:48px;}
+  .cross{position:absolute;background:rgba(255,255,255,0.07);}
+  .cx{left:0;right:0;top:50%;height:1px;} .cy{top:0;bottom:0;left:50%;width:1px;}
+  .sweep{position:absolute;inset:-1px;border-radius:50%;background:conic-gradient(from 0deg,rgba(124,47,242,0) 0deg,rgba(124,47,242,0) 288deg,rgba(124,47,242,0.06) 320deg,rgba(124,47,242,0.55) 360deg);animation:radarsweep 1.5s linear infinite;}
+  .dot{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#7C2FF2;transform:translate(-50%,-50%);}
+  .blip{position:absolute;left:73%;top:33%;width:7px;height:7px;border-radius:50%;background:#34D17C;animation:radarblip 1.5s ease-in-out infinite;}
+  @keyframes radarsweep{to{transform:rotate(360deg);}}
+  @keyframes radarblip{0%,42%{opacity:0;}56%{opacity:1;}100%{opacity:0;}}
+  .splash-brand .mk2{display:inline-block;background:#7C2FF2;color:#fff;font-family:'Onest',system-ui,sans-serif;font-weight:800;font-size:14px;letter-spacing:.06em;padding:5px 11px;border-radius:4px;text-transform:uppercase;}
+  @media (prefers-reduced-motion: reduce){ .sweep{animation:none;} .blip{animation:none;opacity:1;} }
+  *::-webkit-scrollbar{width:6px;height:6px;}
+  *::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:9999px;}
+  *::-webkit-scrollbar-track{background:transparent;}
+</style>
+<link rel="stylesheet" href="./pump-dump.css?v=20261027-home-1"/>
+<link rel="stylesheet" href="./member-access.css?v=20261028-memory-1"/>
+<script src="./user-state-model.js?v=20261028-review-1"></script>
+<script src="./user-memory.js?v=20261028-review-1"></script>
+<link rel="stylesheet" href="./user-memory.css?v=20261028-memory-1"/>
+<script src="./member-access.js?v=20261028-members-1"></script>
+<script src="./pump-dump.js?v=20261028-memory-1"></script>
+<link rel="stylesheet" href="./community-profile.css?v=20261027-profile-1"/>
+<script src="./profile-model.js?v=20261027-profile-1"></script>
+<script src="./community-profile.js?v=20261028-review-1"></script>
+<link rel="stylesheet" href="./onest-theme.css?v=20261028-onest-1"/>
+<link rel="stylesheet" href="./app-motion.css?v=20261028-motion-1"/>
+<script src="./app-motion.js?v=20261028-motion-1"></script>
+<link rel="stylesheet" href="./trading-tools.css?v=20261028-memory-1"/>
+<script src="./trading-model.js?v=20261028-review-1"></script>
+<script src="./trading-tools.js?v=20261028-review-1"></script>
+</head>
+<body>
+<div id="root"></div>
+<div id="splash" class="splash"><div class="radar"><span class="ring r2"></span><span class="ring r3"></span><span class="cross cx"></span><span class="cross cy"></span><span class="sweep"></span><span class="dot"></span><span class="blip" style="left:73%;top:33%"></span><span class="blip" style="left:29%;top:60%;animation-delay:.45s"></span><span class="blip" style="left:61%;top:71%;width:6px;height:6px;animation-delay:.85s"></span><span class="blip" style="left:38%;top:26%;width:5px;height:5px;animation-delay:1.15s"></span></div><div class="splash-brand"><span class="mk2">Что по рынку</span></div></div>
+<script>
+function __start(){
+"use strict";
+const { useState, useEffect, useCallback, useRef } = React;
+const fetch = window.appFetch;
+const MotionReveal = window.AppMotion?.createReveal(React) || function ({ open, children }) { return open ? React.createElement("div", null, children) : null; };
+const Ic = ({ size = 18, className, style, children }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round", className: className, style: style }, children));
+const Home = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" }),
+    React.createElement("polyline", { points: "9 22 9 12 15 12 15 22" })));
+const Calculator = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("rect", { width: "16", height: "20", x: "4", y: "2", rx: "2" }),
+    React.createElement("line", { x1: "8", x2: "16", y1: "6", y2: "6" }),
+    React.createElement("line", { x1: "16", x2: "16", y1: "14", y2: "18" }),
+    React.createElement("path", { d: "M16 10h.01" }),
+    React.createElement("path", { d: "M12 10h.01" }),
+    React.createElement("path", { d: "M8 10h.01" }),
+    React.createElement("path", { d: "M12 14h.01" }),
+    React.createElement("path", { d: "M8 14h.01" }),
+    React.createElement("path", { d: "M12 18h.01" }),
+    React.createElement("path", { d: "M8 18h.01" })));
+const Filter = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("polygon", { points: "22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" })));
+const BookText = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" }),
+    React.createElement("path", { d: "M8 7h6" }),
+    React.createElement("path", { d: "M8 11h8" })));
+const Crown = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.019a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z" }),
+    React.createElement("path", { d: "M5 21h14" })));
+const Search = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("circle", { cx: "11", cy: "11", r: "8" }),
+    React.createElement("path", { d: "m21 21-4.3-4.3" })));
+const TrendingUp = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("polyline", { points: "22 7 13.5 15.5 8.5 10.5 2 17" }),
+    React.createElement("polyline", { points: "16 7 22 7 22 13" })));
+const TrendingDown = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("polyline", { points: "22 17 13.5 8.5 8.5 13.5 2 7" }),
+    React.createElement("polyline", { points: "16 17 22 17 22 11" })));
+const RefreshCw = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" }),
+    React.createElement("path", { d: "M21 3v5h-5" }),
+    React.createElement("path", { d: "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" }),
+    React.createElement("path", { d: "M8 16H3v5" })));
+const Wifi = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M12 20h.01" }),
+    React.createElement("path", { d: "M2 8.82a15 15 0 0 1 20 0" }),
+    React.createElement("path", { d: "M5 12.859a10 10 0 0 1 14 0" }),
+    React.createElement("path", { d: "M8.5 16.429a5 5 0 0 1 7 0" })));
+const WifiOff = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M12 20h.01" }),
+    React.createElement("path", { d: "M8.5 16.429a5 5 0 0 1 7 0" }),
+    React.createElement("path", { d: "M5 12.859a10 10 0 0 1 5.17-2.69" }),
+    React.createElement("path", { d: "M19 12.859a10 10 0 0 0-2.007-1.523" }),
+    React.createElement("path", { d: "M2 8.82a15 15 0 0 1 4.177-2.643" }),
+    React.createElement("path", { d: "M22 8.82a15 15 0 0 0-11.288-3.764" }),
+    React.createElement("path", { d: "m2 2 20 20" })));
+const AlertTriangle = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" }),
+    React.createElement("path", { d: "M12 9v4" }),
+    React.createElement("path", { d: "M12 17h.01" })));
+const Crosshair = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("circle", { cx: "12", cy: "12", r: "10" }),
+    React.createElement("line", { x1: "22", x2: "18", y1: "12", y2: "12" }),
+    React.createElement("line", { x1: "6", x2: "2", y1: "12", y2: "12" }),
+    React.createElement("line", { x1: "12", x2: "12", y1: "6", y2: "2" }),
+    React.createElement("line", { x1: "12", x2: "12", y1: "22", y2: "18" })));
+const Activity = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" })));
+const Scale = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" }),
+    React.createElement("path", { d: "m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" }),
+    React.createElement("path", { d: "M7 21h10" }),
+    React.createElement("path", { d: "M12 3v18" }),
+    React.createElement("path", { d: "M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" })));
+const Plus = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M5 12h14" }),
+    React.createElement("path", { d: "M12 5v14" })));
+const X = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M18 6 6 18" }),
+    React.createElement("path", { d: "m6 6 12 12" })));
+const ChevronRight = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "m9 18 6-6-6-6" })));
+const Sparkles = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z" }),
+    React.createElement("path", { d: "M20 3v4" }),
+    React.createElement("path", { d: "M22 5h-4" }),
+    React.createElement("path", { d: "M4 17v2" }),
+    React.createElement("path", { d: "M5 18H3" })));
+const Check = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M20 6 9 17l-5-5" })));
+const Radar = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M19.07 4.93A10 10 0 0 0 6.99 3.34" }),
+    React.createElement("path", { d: "M4 6h.01" }),
+    React.createElement("path", { d: "M2.29 9.62A10 10 0 1 0 21.31 8.35" }),
+    React.createElement("path", { d: "M16.24 7.76A6 6 0 1 0 8.23 16.67" }),
+    React.createElement("path", { d: "M12 18h.01" }),
+    React.createElement("path", { d: "M17.99 11.66A6 6 0 0 1 15.77 16.67" }),
+    React.createElement("circle", { cx: "12", cy: "12", r: "2" }),
+    React.createElement("path", { d: "m13.41 10.59 5.66-5.66" })));
+const Flame = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" })));
+const Newspaper = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" }),
+    React.createElement("path", { d: "M18 14h-8" }),
+    React.createElement("path", { d: "M15 18h-5" }),
+    React.createElement("path", { d: "M10 6h8v4h-8V6Z" })));
+const GraduationCap = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "m2 10 10-5 10 5-10 5-10-5Z" }),
+    React.createElement("path", { d: "M6 12v5c3 3 9 3 12 0v-5M22 10v6" })));
+const Gift = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("rect", { x: "3", y: "8", width: "18", height: "4", rx: "1" }),
+    React.createElement("path", { d: "M12 8v13" }),
+    React.createElement("path", { d: "M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" }),
+    React.createElement("path", { d: "M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5" })));
+const Ticket = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" }),
+    React.createElement("path", { d: "M13 5v2" }),
+    React.createElement("path", { d: "M13 17v2" }),
+    React.createElement("path", { d: "M13 11v2" })));
+const CalendarCheck = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M8 2v4" }),
+    React.createElement("path", { d: "M16 2v4" }),
+    React.createElement("rect", { width: "18", height: "18", x: "3", y: "4", rx: "2" }),
+    React.createElement("path", { d: "M3 10h18" }),
+    React.createElement("path", { d: "m9 16 2 2 4-4" })));
+const ExternalLink = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M15 3h6v6" }),
+    React.createElement("path", { d: "M10 14 21 3" }),
+    React.createElement("path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" })));
+const Users = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" }),
+    React.createElement("circle", { cx: "9", cy: "7", r: "4" }),
+    React.createElement("path", { d: "M22 21v-2a4 4 0 0 0-3-3.87" }),
+    React.createElement("path", { d: "M16 3.13a4 4 0 0 1 0 7.75" })));
+const Bell = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("path", { d: "M10.268 21a2 2 0 0 0 3.464 0" }),
+    React.createElement("path", { d: "M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" })));
+const Lock = (p) => (React.createElement(Ic, { ...p },
+    React.createElement("rect", { width: "18", height: "11", x: "3", y: "11", rx: "2", ry: "2" }),
+    React.createElement("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })));
+const PROXY_BASE = "/api/bingx";
+const HOST = "https://open-api.bingx.com";
+const bingxUrl = (path, symbol) => PROXY_BASE ? `${PROXY_BASE}?path=${encodeURIComponent(path)}${symbol ? `&symbol=${symbol}` : ""}`
+    : `${HOST}${path}${symbol ? `?symbol=${symbol}` : ""}`;
+// палитра проекта
+const VIOLET = "#7C2FF2", TEAL = "#34D17C", CORAL = "#FF5765";
+const BRAND = VIOLET, GREEN = TEAL, RED = CORAL, TEXT = "#FFFFFF", MUTE = "#8E8E96";
+const SYMS = ["BTC-USDT", "ETH-USDT", "SOL-USDT", "BNB-USDT", "XRP-USDT", "DOGE-USDT", "ADA-USDT", "AVAX-USDT", "LINK-USDT", "TRX-USDT", "DOT-USDT", "LTC-USDT", "NEAR-USDT", "APT-USDT", "ARB-USDT", "OP-USDT", "INJ-USDT", "SUI-USDT", "SEI-USDT", "TIA-USDT", "PEPE-USDT", "WIF-USDT", "BONK-USDT", "FIL-USDT", "ATOM-USDT", "UNI-USDT", "AAVE-USDT", "ORDI-USDT", "JUP-USDT", "STRK-USDT"];
+const BASE_PRICE = { "BTC-USDT": 64250, "ETH-USDT": 3120, "SOL-USDT": 148, "BNB-USDT": 595, "XRP-USDT": 0.52, "DOGE-USDT": 0.123 };
+function rng(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+} return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h ^= h >>> 13; return ((h >>> 0) % 1e5) / 1e5; }; }
+const MOCK_TICKERS = SYMS.map((symbol) => { var _a; const r = rng(symbol); const price = (_a = BASE_PRICE[symbol]) !== null && _a !== void 0 ? _a : +(0.02 + r() * 180).toFixed(4); const chg = +((r() * 2 - 1) * 13).toFixed(2); const vol = Math.round((0.4 + r() * 9) * 1e8); return { symbol, price, chg, vol, high: price * (1 + Math.abs(chg) / 200), low: price * (1 - Math.abs(chg) / 200) }; });
+function num(v) { const x = parseFloat(String(v).replace(",", ".")); return isNaN(x) ? 0 : x; }
+function fmt(n, dp = 2) { if (n == null || !isFinite(n) || isNaN(n))
+    return "—"; return new Intl.NumberFormat("ru-RU", { minimumFractionDigits: dp, maximumFractionDigits: dp }).format(n); }
+function priceDp(p) { return p >= 100 ? 2 : p >= 1 ? 3 : 6; }
+function fmtVol(v) { return "$" + new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(v); }
+function shortDate(ts) { return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit" }).format(ts); }
+const reduceMotion = () => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function useCountUp(target) {
+    const [val, setVal] = useState(target);
+    const ref = useRef(target);
+    useEffect(() => {
+        if (!isFinite(target) || reduceMotion()) {
+            setVal(target);
+            ref.current = target;
+            return;
+        }
+        const from = isFinite(ref.current) ? ref.current : target;
+        if (from === target) {
+            setVal(target);
+            return;
+        }
+        const start = performance.now();
+        const dur = 280;
+        let raf;
+        const tick = (t) => { if (reduceMotion()) { setVal(target); ref.current = target; return; } const p = Math.min(1, (t - start) / dur); const e = 1 - Math.pow(1 - p, 3); setVal(from + (target - from) * e); if (p < 1)
+            raf = requestAnimationFrame(tick);
+        else {
+            setVal(target);
+            ref.current = target;
+        } };
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+    }, [target]);
+    ref.current = isFinite(val) ? val : target;
+    return val;
+}
+function Num({ value, dp = 2, prefix = "", suffix = "", className, style }) { const v = useCountUp(value); return React.createElement("span", { className: className, style: style },
+    prefix,
+    fmt(v, dp),
+    suffix); }
+const glass = { background: "#151419", border: "1px solid transparent", borderRadius: 14 };
+const fieldStyle = { background: "#111015", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10 };
+function Field({ label, suffix, value, onChange, placeholder, upper }) {
+    return (React.createElement("label", { className: "block" },
+        React.createElement("span", { className: "mb-1 block text-xs font-medium uppercase tracking-wider", style: { color: MUTE } }, label),
+        React.createElement("div", { className: "ll-field flex items-center", style: fieldStyle },
+            React.createElement("input", { value: value, placeholder: placeholder, onChange: (e) => onChange(e.target.value), inputMode: upper ? "text" : "decimal", className: "w-full bg-transparent px-3 py-2.5 text-sm outline-none " + (upper ? "uppercase" : "tabular-nums"), style: { color: TEXT } }),
+            suffix && React.createElement("span", { className: "px-3 text-xs font-medium", style: { color: MUTE } }, suffix))));
+}
+function Segmented({ items, value, onChange, thumbColor, layout = "row" }) {
+    const n = items.length;
+    const idx = Math.max(0, items.findIndex((i) => i.id === value));
+    const col = typeof thumbColor === "function" ? thumbColor(value) : thumbColor;
+    const pad = 4, radius = 10;
+    return (React.createElement("div", { className: "ll-segmented", style: { display: "grid", gridTemplateColumns: `repeat(${n},1fr)`, position: "relative", padding: pad, borderRadius: radius, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" } },
+        React.createElement("div", { className: "seg-thumb", "aria-hidden": true, style: { position: "absolute", top: pad, bottom: pad, left: pad, width: `calc((100% - ${pad * 2}px)/${n})`, transform: `translateX(${idx * 100}%)`, background: col + "30", borderRadius: radius - 4, boxShadow: "none", transition: "transform .36s cubic-bezier(.34,1.18,.4,1), background-color .28s ease" } }),
+        items.map((it) => {
+            const active = it.id === value;
+            const Icon = it.icon;
+            return (React.createElement("button", { key: it.id, onClick: () => onChange(it.id), className: "relative z-10 flex items-center justify-center gap-1.5 transition active:scale-95 " + (layout === "col" ? "flex-col gap-1 py-2" : "py-2 text-[13px] font-bold uppercase tracking-wide"), style: { color: active ? "#fff" : MUTE, transition: "color .2s ease, transform .15s ease" } },
+                Icon && React.createElement(Icon, { size: layout === "col" ? 18 : 15, style: { color: active ? "#fff" : (layout === "col" ? TEXT : "currentColor") } }),
+                React.createElement("span", { className: layout === "col" ? "text-[10px] font-bold uppercase tracking-wide" : "uppercase tracking-wide" }, it.label)));
+        })));
+}
+function Result({ label, value, dp = 2, prefix = "", suffix = "", hint, tone, accent }) {
+    const color = tone === "good" ? GREEN : tone === "bad" ? RED : tone === "accent" ? accent : TEXT;
+    return (React.createElement("div", { className: "flex items-baseline justify-between py-2.5", style: { borderBottom: "1px solid rgba(255,255,255,0.08)" } },
+        React.createElement("span", { className: "text-[11px] font-semibold uppercase tracking-wider", style: { color: MUTE } }, label),
+        React.createElement("span", { className: "text-right" },
+            React.createElement(Num, { value: value, dp: dp, prefix: prefix, suffix: suffix, className: "text-base tabular-nums", style: { color } }),
+            hint && React.createElement("span", { className: "ml-2 text-xs", style: { color: MUTE } }, hint))));
+}
+const Card = ({ children, className = "", style }) => React.createElement("div", { className: className, style: { ...glass, ...style } }, children);
+/* Trading tools share one calculation model and the protected journal API. */
+const MemoryUI = window.createMemoryBindings(React);
+const TradingTools = window.createTradingTools(React, { fetch, bingxUrl, Reveal: MotionReveal, list: apiJournalList, add: apiJournalAdd, remove: apiJournalDelete });
+const { CalculatorsModule, ScreenerModule, JournalModule } = TradingTools;
+const TGWA = (typeof window !== "undefined" && window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+async function apiMe() {
+    try {
+        const initData = TGWA ? (TGWA.initData || "") : "";
+        const r = await fetch("/api/me", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ initData }) });
+        return await r.json();
+    }
+    catch (e) {
+        return { ok: false, guest: true, user: { name: "трейдер", points: 0, completedQuests: [], canSpinToday: true, bestDiscount: 0 } };
+    }
+}
+const MemberProfileUI = window.createCommunityProfile(React);
+const useMemberProfile = MemberProfileUI.useProfile;
+const MemberEntryCard = MemberProfileUI.EntryCard;
+const MemberProfileScreen = MemberProfileUI.ProfileScreen;
+const PumpDumpView = window.createPumpDumpModule(React);
+const usePumpDumpFeed = window.createPumpDumpFeedHook(React);
+const PumpDumpHomeWidget = window.createPumpDumpHomeWidget(React);
+function RadarModule({ feed }) { return React.createElement(PumpDumpView, { feed }); }
+async function apiJournalList() {
+    return postJournal("/api/journal/list", {});
+}
+async function apiJournalAdd(t) {
+    return postJournal("/api/journal/add", t);
+}
+async function apiJournalDelete(id) {
+    return postJournal("/api/journal/delete", { id });
+}
+async function postJournal(path, payload) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+        const initData = TGWA ? (TGWA.initData || "") : "";
+        const response = await fetch(path, { method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, initData }) });
+        const json = await response.json();
+        return response.ok ? json : { ...json, ok: false };
+    }
+    catch (_) { return { ok: false, reason: "network" }; }
+    finally { clearTimeout(timeout); }
+}
+function Avatar({ photoUrl, name, size, onClick }) {
+    const [err, setErr] = useState(false);
+    const s = size || 44;
+    const initial = (name && name[0]) || "Т";
+    const base = { width: s, height: s, borderRadius: 6, flexShrink: 0 };
+    if (photoUrl && !err) {
+        return (React.createElement("button", { onClick: onClick, style: { ...base, overflow: "hidden", padding: 0, border: "1px solid rgba(255,255,255,0.15)", background: "transparent" } },
+            React.createElement("img", { src: photoUrl, alt: "", onError: () => setErr(true), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })));
+    }
+    return (React.createElement("button", { onClick: onClick, className: "flex items-center justify-center font-bold", style: { ...base, fontSize: s * 0.4, background: BRAND, color: "#fff", boxShadow: "none" } }, initial));
+}
+function HomeScreen({ go, name, tickers, openProfile, photoUrl, pumpDumpFeed, memberProfile, marketStatus, marketUpdated }) {
+    const sorted = [...tickers].sort((a, b) => b.chg - a.chg);
+    const gainers = sorted.filter(t => t.chg > 0).slice(0, 3), losers = sorted.filter(t => t.chg < 0).slice(-3).reverse();
+    const Mover = ({ t }) => React.createElement("div", { className: "home-mover" },
+        React.createElement("span", { className: "home-mover-name" }, t.symbol.replace("-USDT", "")),
+        React.createElement("span", { className: "home-mover-return", style: { color: t.chg >= 0 ? TEAL : CORAL } }, (t.chg >= 0 ? "+" : "") + t.chg.toFixed(1) + "%"));
+    const tools = [{ id: "calc", label: "Калькулятор", Icon: Calculator }, { id: "screener", label: "Скринер", Icon: Filter }, { id: "journal", label: "Дневник", Icon: BookText }, { id: "radar", label: "Pump / Dump", Icon: Radar }, { id: "academy", label: "Академия", Icon: GraduationCap }, { id: "indicators", label: "ИИндикаторы", Icon: Activity }];
+    return React.createElement("div", { className: "app-home" },
+        React.createElement("header", null,
+            React.createElement("div", { className: "mp-home-brand" }, "Что по рынку"),
+            React.createElement(MemberEntryCard, { resource: memberProfile, name, photoUrl, onOpen: openProfile })),
+        React.createElement(PumpDumpHomeWidget, { feed: pumpDumpFeed, onOpen: () => go("radar") }),
+        React.createElement("section", { "aria-label": "Инструменты" },
+            React.createElement("h2", { className: "home-section-title" }, "Инструменты"),
+            React.createElement("div", { className: "home-tools-grid" }, tools.map(({ id, label, Icon }) => React.createElement("button", { key: id, type: "button", className: "home-tool", onClick: () => go(id) },
+                React.createElement(Icon, { size: 20 }), React.createElement("span", null, label))))),
+        React.createElement("details", { className: "home-market" },
+            React.createElement("summary", null, "Рынок · 24 ч", React.createElement("span", { className: "home-market-arrow", "aria-hidden": true }, "⌄")),
+            React.createElement("p", { className: "home-market-state", role: "status" }, window.location.protocol === "file:" ? "Демонстрационные котировки" : ["error", "stale"].includes(marketStatus) ? "Котировки не обновляются" : marketStatus === "loading" ? "Обновляю котировки…" : marketUpdated ? "Котировки получены в " + new Date(marketUpdated).toLocaleTimeString("ru-RU", { hour:"2-digit", minute:"2-digit" }) : "Котировки пока недоступны"),
+            React.createElement("div", { className: "home-market-grid" },
+                React.createElement("div", null, React.createElement("div", { className: "home-market-label", style: { color: TEAL } }, "Рост"), gainers.length ? gainers.map(t => React.createElement(Mover, { key: t.symbol, t })) : React.createElement("small", null, "Нет данных о росте")),
+                React.createElement("div", null, React.createElement("div", { className: "home-market-label", style: { color: CORAL } }, "Падение"), losers.length ? losers.map(t => React.createElement(Mover, { key: t.symbol, t })) : React.createElement("small", null, "Нет данных о падении")))),
+        React.createElement("section", { "aria-label": "AI - трейдер" },
+            React.createElement("h2", { className: "home-section-title" }, "AI - трейдер"),
+            React.createElement("div", { className: "home-ai-field" },
+                React.createElement(Sparkles, { size: 18 }),
+                React.createElement("input", { type: "text", value: "SOON", readOnly: true, disabled: true, "aria-label": "AI - трейдер — скоро" }))));
+}
+const NAV = [{ id: "home", label: "Главная", icon: Home }, { id: "radar", label: "Pump / Dump", icon: Radar }, { id: "journal", label: "Дневник", icon: BookText }, { id: "academy", label: "Академия", icon: GraduationCap }, { id: "indicators", label: "ИИндикаторы", icon: Activity }];
+function AcademyModule() {
+    return React.createElement("section", { "aria-label": "Академия", style: { minHeight: "calc(100dvh - 140px)", display: "flex", alignItems: "center", justifyContent: "center" } },
+        React.createElement("h1", { style: { margin: 0, color: VIOLET, fontSize: "clamp(44px, 12vw, 64px)", fontWeight: 400, letterSpacing: ".12em" } }, "SOON"));
+}
+function AIIndicatorsModule() {
+    return React.createElement("section", { "aria-label": "ИИндикаторы", style: { minHeight: "calc(100dvh - 140px)", display: "flex", alignItems: "center", justifyContent: "center" } },
+        React.createElement("h1", { style: { margin: 0, color: VIOLET, fontSize: "clamp(44px, 12vw, 64px)", fontWeight: 400, letterSpacing: ".12em" } }, "SOON"));
+}
+function App() {
+    const pumpDumpFeed = usePumpDumpFeed();
+    const memberProfile = useMemberProfile();
+    const scrollRef = useRef(null);
+    useEffect(() => window.AppMotion?.mount(scrollRef.current?.closest(".app")), []);
+    const [tab, setTab] = useState(["calc", "screener", "journal", "radar", "academy", "indicators", "profile"].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : "home");
+    useEffect(() => {
+        const valid = ["home", "calc", "screener", "journal", "radar", "academy", "indicators", "profile"];
+        const sync = () => { const next = window.location.hash.slice(1); setTab(valid.includes(next) ? next : "home"); };
+        window.addEventListener("hashchange", sync);
+        return () => window.removeEventListener("hashchange", sync);
+    }, []);
+    useEffect(() => {
+        if (window.location.hash !== "#" + tab) window.history?.replaceState(window.history.state, "", "#" + tab);
+        const back = TGWA?.BackButton;
+        if (!back) return;
+        const goBack = () => setTab("home");
+        try { if (tab === "home") back.hide(); else back.show(); back.onClick(goBack); } catch (_) {}
+        return () => { try { back.offClick(goBack); back.hide(); } catch (_) {} };
+    }, [tab]);
+    const [me, setMe] = useState(null);
+    const [calcRequest, setCalcRequest] = useState(null);
+    const [journalRequest, setJournalRequest] = useState(null);
+    const requestSequence = useRef(0);
+    const openCalculator = data => { setCalcRequest({ ...data, id: ++requestSequence.current }); setTab("calc"); };
+    const openJournal = data => { setJournalRequest({ ...data, id: ++requestSequence.current }); setTab("journal"); };
+    const localPreview = window.location.protocol === "file:";
+    const [marketUpdated, setMarketUpdated] = useState(null);
+    const marketRequest = useRef({ busy: false, hasData: false });
+    const tgUser = (TGWA && TGWA.initDataUnsafe) ? TGWA.initDataUnsafe.user : null;
+    const photoUrl = tgUser && tgUser.photo_url ? tgUser.photo_url : "";
+    const username = tgUser && tgUser.username ? tgUser.username : "";
+    const [symbols, setSymbols] = useState(SYMS);
+    const [tickers, setTickers] = useState(localPreview ? MOCK_TICKERS : []);
+    const [scStatus, setScStatus] = useState(localPreview ? "mock" : "loading");
+    const name = me && me.user && me.user.name ? me.user.name : "трейдер";
+    useEffect(() => { apiMe().then(setMe).catch(() => { }); }, []);
+    useEffect(() => { if (localPreview) return; (async () => { try {
+        const r = await fetch(bingxUrl("/openApi/swap/v2/quote/contracts"));
+        const j = await r.json();
+        const arr = Array.isArray(j === null || j === void 0 ? void 0 : j.data) ? j.data : [];
+        const list = arr.filter((c) => c.status === undefined || c.status === 1).map((c) => c.symbol).filter((x) => typeof x === "string" && x.endsWith("-USDT")).sort();
+        if (list.length)
+            setSymbols(list);
+    }
+    catch (_a) { } })(); }, []);
+    const loadTickers = useCallback(async () => {
+        if (localPreview || marketRequest.current.busy) return;
+        marketRequest.current.busy = true;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        setScStatus("loading");
+        try {
+            const response = await fetch(bingxUrl("/openApi/swap/v2/quote/ticker"), { signal: controller.signal });
+            const json = await response.json();
+            const list = (Array.isArray(json?.data) ? json.data : []).filter(d => typeof d.symbol === "string" && d.symbol.endsWith("-USDT")).map(d => ({symbol:d.symbol,price:window.TradingModel.number(d.lastPrice),chg:window.TradingModel.number(d.priceChangePercent),vol:window.TradingModel.number(d.quoteVolume),high:window.TradingModel.number(d.highPrice),low:window.TradingModel.number(d.lowPrice)})).filter(d => d.price > 0 && Number.isFinite(d.chg) && Number.isFinite(d.vol));
+            if (!response.ok || !list.length) throw Error("No quotes");
+            setTickers(list); setMarketUpdated(Date.now()); marketRequest.current.hasData = true; setScStatus("live");
+        } catch (_) { setScStatus(marketRequest.current.hasData ? "stale" : "error"); }
+        finally { clearTimeout(timeout); marketRequest.current.busy = false; }
+    }, []);
+    useEffect(() => { loadTickers(); }, [loadTickers]);
+    useEffect(() => {
+        if (localPreview || !["home", "screener"].includes(tab)) return;
+        const refresh = () => { if (document.visibilityState === "visible") loadTickers(); };
+        const timer = setInterval(refresh, 30000);
+        document.addEventListener("visibilitychange", refresh);
+        refresh();
+        return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+    }, [tab, loadTickers]);
+    useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
+    return (React.createElement("div", { className: "app mx-auto flex max-w-md flex-col", style: { position: "relative", overflow: "hidden", background: "#0A0A0C", borderRadius: 8, height: 780 } },
+        React.createElement("style", null, `
+        .ll-field{ transition:border-color .22s ease, background-color .22s ease; }
+        .ll-field:focus-within{ border-color:rgba(255,255,255,0.34)!important; background:rgba(0,0,0,0.28); }
+        .ll-field input::placeholder{ color:#6f6a87; }
+        .ll-item:hover{ background:rgba(255,255,255,0.10); }
+        .ll-scroll::-webkit-scrollbar{ width:6px; } .ll-scroll::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.16); border-radius:6px; }
+        .mk{ display:inline-block; background:#7C2FF2; color:#fff; font-weight:800; padding:1px 7px; border-radius:4px; letter-spacing:.02em; }
+        .chip{ display:inline-flex; align-items:center; gap:5px; border:1px solid rgba(255,255,255,0.18); color:#fff; font-size:11px; font-weight:600; letter-spacing:.04em; padding:3px 8px; border-radius:6px; }
+        .wheel{ transition: transform 4.4s cubic-bezier(.16,.74,.16,1); transform-origin:center; }
+        @keyframes popIn{0%{opacity:0;transform:scale(.96) translateY(10px);}100%{opacity:1;transform:scale(1) translateY(0);}}
+        .pop{animation:popIn .42s cubic-bezier(.22,1,.36,1) both;}
+        @media (prefers-reduced-motion: reduce){ .seg-thumb{transition:none!important;} .wheel{transition:none;} .pop{animation:none;} }
+      `),
+        React.createElement("div", { className: "ll-scroll relative flex-1 overflow-y-auto p-5", ref: scrollRef, style: { zIndex: 1 } },
+            React.createElement(MemoryUI.Status, null),
+            React.createElement("div", { className: "app-screen", style: { display: tab === "home" ? "block" : "none" } },
+                React.createElement(HomeScreen, { pumpDumpFeed: pumpDumpFeed, go: setTab, name: name, tickers: tickers, openProfile: () => setTab("profile"), photoUrl: photoUrl, memberProfile: memberProfile, marketStatus: scStatus, marketUpdated })),
+            React.createElement("div", { className: "app-screen", style: { display: tab === "calc" ? "block" : "none" } },
+                React.createElement(CalculatorsModule, { symbols, onBack: () => setTab("home"), onJournal: openJournal, request: calcRequest })),
+            React.createElement("div", { className: "app-screen", style: { display: tab === "screener" ? "block" : "none" } },
+                React.createElement(ScreenerModule, { tickers, status: scStatus, reload: loadTickers, updatedAt: marketUpdated, onBack: () => setTab("home"), onCalculate: openCalculator })),
+            React.createElement("div", { className: "app-screen", style: { display: tab === "journal" ? "block" : "none" } },
+                React.createElement(JournalModule, { onBack: () => setTab("home"), request: journalRequest, active: tab === "journal" })),
+            React.createElement("div", { className: "app-screen", style: { display: tab === "radar" ? "block" : "none" } }, React.createElement(RadarModule, { feed: pumpDumpFeed })),
+            React.createElement("div", { className: "app-screen", style: { display: tab === "academy" ? "block" : "none" } },
+                React.createElement(AcademyModule, null)),
+            React.createElement("div", { className: "app-screen", style: { display: tab === "indicators" ? "block" : "none" } },
+                React.createElement(AIIndicatorsModule, null)),
+            tab === "profile" && React.createElement(MemberProfileScreen, { resource: memberProfile, name, username, photoUrl, onBack: () => setTab("home"), onNavigate: setTab })),
+        tab !== "profile" && React.createElement("nav", { className: "app-nav", "aria-label": "Основная навигация" },
+            React.createElement("div", { className: "app-nav-items" },
+                NAV.map(n => React.createElement("button", { key: n.id, type: "button", onClick: () => setTab(n.id), className: "app-nav-button" + (tab === n.id ? " active" : ""), "aria-current": tab === n.id ? "page" : undefined },
+                    React.createElement(n.icon, { size: 18 }), React.createElement("span", null, n.label)))))));
+}
+const root = ReactDOM.createRoot(document.getElementById("root"));
+const MemberGate = window.createMemberGate(React);
+root.render(React.createElement(MemberGate, { App }));
+try {
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (tg) {
+        tg.ready();
+        tg.expand();
+        if (tg.setHeaderColor)
+            tg.setHeaderColor("#16181E");
+        if (tg.setBackgroundColor)
+            tg.setBackgroundColor("#16181E");
+        if (tg.disableVerticalSwipes)
+            tg.disableVerticalSwipes();
+    }
+}
+catch (e) { }
+
+window.__mounted = true;
+}
+</script>
+<script>
+(function(){
+  function showErr(msg){ if(window.__mounted) return; var sp=document.getElementById("splash"); if(sp&&sp.parentNode) sp.parentNode.removeChild(sp); var r=document.getElementById("root"); if(r){ var text=document.createElement("pre");text.className="err";text.textContent=String(msg);r.replaceChildren(text); } }
+  window.addEventListener("error", function(e){ showErr("Ошибка: "+((e&&e.message)||e)+"\n"+((e&&e.filename)||"")+":"+((e&&e.lineno)||"")); });
+  function load(urls, done){
+    var i=0;
+    (function go(){
+      if(i>=urls.length){ done(false); return; }
+      var s=document.createElement("script");
+      s.src=urls[i++];
+      s.onload=function(){ done(true); };
+      s.onerror=function(){ go(); };
+      document.head.appendChild(s);
+    })();
+  }
+  var R=[
+    "https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js",
+    "https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js",
+    "https://unpkg.com/react@18.3.1/umd/react.production.min.js"
+  ];
+  var RD=[
+    "https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js",
+    "https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js",
+    "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"
+  ];
+  load(R, function(ok){
+    if(!ok || !window.React){ showErr("Не удалось загрузить React ни с одного CDN.\nВозможно, сеть блокирует внешние скрипты. Попробуй другой браузер или мобильный интернет."); return; }
+    load(RD, function(ok2){
+      if(!ok2 || !window.ReactDOM){ showErr("React загрузился, а ReactDOM — нет. Попробуй обновить страницу."); return; }
+      try{ __start(); }catch(err){ showErr("Ошибка запуска приложения:\n"+((err&&err.message)||err)); }
+    });
+  });
+  setTimeout(function(){ if(!window.__mounted){ showErr("Слишком долго грузится.\nСкорее всего сеть блокирует внешние скрипты (React).\nПопробуй другой браузер или другую сеть."); } }, 8000);
+})();
+</script>
+<script>
+(function(){var t=0;var iv=setInterval(function(){t++;var sp=document.getElementById("splash");if(!sp){clearInterval(iv);return;}var r=document.getElementById("root");if((r&&r.children.length>0)||t>120){clearInterval(iv);sp.classList.add("hide");setTimeout(function(){if(sp&&sp.parentNode)sp.parentNode.removeChild(sp);},520);}},50);})();
+</script>
+</body>
+</html>
